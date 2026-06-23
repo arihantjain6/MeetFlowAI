@@ -148,6 +148,16 @@ function SidebarProvider({
   )
 }
 
+/**
+ * Renders a sidebar that adapts to mobile and desktop layouts.
+ *
+ * On mobile, displays as an overlay sheet. On desktop, renders as a fixed sidebar that can
+ * collapse based on the `collapsible` option.
+ *
+ * @param collapsible - Collapse behavior: `"offcanvas"` slides off-screen, `"icon"` collapses to an icon rail, `"none"` prevents collapsing.
+ * @param variant - Visual style: `"sidebar"`, `"floating"`, or `"inset"`.
+ * @param side - Sidebar position: `"left"` or `"right"`.
+ */
 function Sidebar({
   side = "left",
   variant = "sidebar",
@@ -250,6 +260,9 @@ function Sidebar({
   )
 }
 
+/**
+ * Renders a button that toggles the sidebar open and collapsed state.
+ */
 function  SidebarTrigger({
   className,
   onClick,
