@@ -250,7 +250,7 @@ function Sidebar({
   )
 }
 
-function SidebarTrigger({
+function  SidebarTrigger({
   className,
   onClick,
   ...props
