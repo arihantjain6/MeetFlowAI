@@ -12,6 +12,11 @@ import type { AppRouter } from './routers/_app';
 export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
 
 let browserQueryClient: QueryClient;
+/**
+ * Gets the current React Query client for the active runtime.
+ *
+ * @returns A new query client on the server, or a shared browser query client in the browser.
+ */
 function getQueryClient() {
     if (typeof window === 'undefined') {
         // Server: always make a new query client
@@ -25,6 +30,11 @@ function getQueryClient() {
     return browserQueryClient;
 }
 
+/**
+ * Builds the tRPC endpoint URL.
+ *
+ * @returns The `/api/trpc` URL using the current browser origin or `process.env.NEXT_PUBLIC_APP_URL` on the server.
+ */
 function getUrl() {
     const base = (() => {
         if (typeof window !== 'undefined') return '';
@@ -33,6 +43,11 @@ function getUrl() {
     return `${base}/api/trpc`;
 }
 
+/**
+ * Provides tRPC and React Query context to its children.
+ *
+ * @param props.children - The React tree to render inside the providers.
+ */
 export function TRPCReactProvider(
     props: Readonly<{
         children: React.ReactNode;
