@@ -11,7 +11,7 @@ export const LoadingState: React.FC<Props> = ({title, description}: Props) => {
             <div className="flex flex-col items-center justify-center gap-y-6 bg-background rounded-lg p-10 shadow-sm">
                 <Loader2Icon className="size-6 animate-spin text-primary" />
                 <div className="flex flex-col gap-y-2 text-center">
-                    <h6 className="text-lg font-mediun">
+                    <h6 className="text-lg font-medium">
                         {title}
                         <p className="text-sm">
                             {description}
