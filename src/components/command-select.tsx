@@ -13,7 +13,7 @@ interface Props {
     }>
     value: string;
     onSelect: (value: string) => void;
-    onSearch: (value: string) => void;
+    onSearch?: (value: string) => void;
     placeholder?: string;
     isSearchable?: boolean;
     className?: string;
@@ -30,6 +30,11 @@ export const CommandSelect = ({
 }: Props) => {
     const [open, setOpen] = useState(false);
     const selectedOption = options.find((options) => options.value === value)
+
+    const handleOpenChange = (open: boolean) => {
+        onSearch?.("");
+        setOpen(open);
+    }
     return (
         <>
             <Button
@@ -42,13 +47,15 @@ export const CommandSelect = ({
                     className,
                 )}
             >
-                <div>
+                <div className="truncate min-w-0 flex-1 text-left">
                     {selectedOption?.children ?? placeholder}
                 </div>
                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
-            <CommandResponsiveDialog open={open} onOpenChange={setOpen}>
-                <CommandInput placeholder="Search..." />
+            <CommandResponsiveDialog open={open} onOpenChange={handleOpenChange} showCloseButton={true}>
+                {isSearchable && (
+                    <CommandInput placeholder="Search..." onValueChange={onSearch} />
+                )}
                 <CommandList>
                     <CommandEmpty>
                         <span className="text-muted-foreground">
@@ -57,11 +64,11 @@ export const CommandSelect = ({
                     </CommandEmpty>
                     {options.map((option) => (
                         <CommandItem
-                            key={option.id}
-                            onSelect={() => {
-                                onSelect(option.value)
-                                setOpen(false)
-                            }}
+                             key={option.id}
+                             onSelect={() => {
+                                 onSelect(option.value)
+                                 setOpen(false)
+                             }}
                         > {option.children} </CommandItem>
                     ))}
                     <CommandGroup heading="">
