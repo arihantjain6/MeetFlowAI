@@ -11,7 +11,7 @@ export const UpdateMeetingsDialog = ({ open, onOpenChange, initialValues }: NewA
     return (
         <ResponsiveDialog
             title="Edit Meeting"
-            description="Create a new meeting"
+            description="Update your meeting" 
             open={open}
             onOpenChange={onOpenChange}
         >
