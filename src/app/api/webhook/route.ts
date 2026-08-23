@@ -4,16 +4,14 @@ import { db } from "@/db";
 import {
   CallEndedEvent,
   CallTranscriptionReadyEvent,
-  CallSessionParticipantLeftEvent,
   CallRecordingReadyEvent,
   CallSessionStartedEvent,
+  CallSessionEndedEvent,
 } from "@stream-io/node-sdk";
 import { agents, meetings } from "@/db/schema";
 import { streamVideo } from "@/lib/stream-video";
+import { inngest } from "@/lib/inngest/client";
 
-function verifySignatureWithSDK(body: string, signature: string): boolean {
-  return streamVideo.verifyWebhook(body, signature);
-}
 
 export async function POST(req: NextRequest) {
   const signature = req.headers.get("x-signature");
@@ -28,43 +26,27 @@ export async function POST(req: NextRequest) {
 
   // if (apiKey !== process.env.STREAM_API_KEY) {
   //     return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
-  // }
+  // } 
 
-  const body = await req.text();
-  if (!verifySignatureWithSDK(body, signature)) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-  }
-
+  const rawBody = Buffer.from(await req.arrayBuffer());
   let payload: unknown;
   try {
-    payload = JSON.parse(body);
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    payload = streamVideo.verifyAndParseWebhook(rawBody, signature);
+    console.log("[Webhook Debug] Webhook signature verified successfully!");
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error("[Webhook Debug] Webhook signature verification failed:", errorMsg);
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
   const eventType = (payload as Record<string, unknown>)?.type;
 
-  let meetingId: string | undefined;
-
   if (eventType === "call.session_started") {
     const event = payload as CallSessionStartedEvent;
-    meetingId = event.call.custom?.meetingId as string | undefined;
+    const meetingId = event.call.custom?.meetingId as string | undefined;
 
     if (!meetingId) {
-      return NextResponse.json(
-        { error: "No meetingId found" },
-        { status: 400 },
-      );
-    }
-
-    const calls = event.call.custom?.calls as string[];
-    const agentCallSid = event.call.custom?.agentCallSid as string;
-
-    if (!meetingId) {
-      return NextResponse.json(
-        { error: "No meetingId found" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "No meetingId found" }, { status: 400 });
     }
 
     const [existingMeeting] = await db
@@ -101,7 +83,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
 
-    const call = streamVideo.video.call("default", meetingId);
+    streamVideo.video.call("default", meetingId);
   }
+
+  if (eventType === "call.session_ended") {
+    const event = payload as CallSessionEndedEvent;
+    const meetingId = event.call.custom?.meetingId as string | undefined;
+
+    if (!meetingId) {
+      return NextResponse.json({ error: "No meetingId found" }, { status: 400 });
+    }
+
+    await inngest.send({
+      name: "call.session_ended",
+      data: event,
+    });
+  }
+
+  if (eventType === "call.recording_ready") {
+    const event = payload as CallRecordingReadyEvent;
+    const meetingId = event.call_cid.split(":")[1];
+
+    if (!meetingId) {
+      return NextResponse.json({ error: "No meetingId found" }, { status: 400 });
+    }
+
+    await inngest.send({
+      name: "call.recording_ready",
+      data: event,
+    });
+  }
+
+  if (eventType === "call.transcription_ready") {
+    const event = payload as CallTranscriptionReadyEvent;
+    const meetingId = event.call_cid.split(":")[1];
+
+    if (!meetingId) {
+      return NextResponse.json({ error: "No meetingId found" }, { status: 400 });
+    }
+
+    await inngest.send({
+      name: "call.transcription_ready",
+      data: event,
+    });
+  }
+
   return NextResponse.json({ status: "ok" });
 }

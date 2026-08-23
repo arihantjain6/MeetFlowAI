@@ -9,9 +9,12 @@ import { generateAvatarUri } from "@/lib/avatar";
 interface Props {
     meetingId: string;
     meetingName: string;
+    agentId: string;
+    agentName: string;
+    agentInstructions: string;
 };
 
-export const CallProvider = ({ meetingId, meetingName}: Props) => {
+export const CallProvider = ({ meetingId, meetingName, agentId, agentName, agentInstructions}: Props) => {
     const { data , isPending}= authClient.useSession();
 
     if(!data || isPending) {
@@ -32,7 +35,11 @@ export const CallProvider = ({ meetingId, meetingName}: Props) => {
              userImage={
                 data.user.image ??
                 generateAvatarUri({seed: data.user.name, variant: "initials"})
-             } />
+             }
+             agentId={agentId}
+             agentName={agentName}
+             agentInstructions={agentInstructions}
+             />
         </div> 
     )
 }

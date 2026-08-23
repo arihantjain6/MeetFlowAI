@@ -1,25 +1,17 @@
 "use client"
 import { format } from "date-fns"
-import humanizeDuration from "humanize-duration"
 import { ColumnDef } from "@tanstack/react-table"
 import { MeetingsGetMany } from "../../types"
 import { GeneratedAvatar } from "@/components/generated-avatar"
 import { CircleCheckIcon, CircleXIcon, ClockArrowUpIcon, ClockFadingIcon, CornerDownRightIcon, LoaderIcon } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, formatDuration } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 
-function formatDuration(seconds: number) {
-    return humanizeDuration(seconds * 1000, {
-        largest: 1,
-        round: true,
-        units: ["h", "m", "s"],
-    })
-}
 
 const statusIconMap = {
     ["upcoming"]: ClockArrowUpIcon,
-    ["active"]: CircleCheckIcon,
-    ["completed"]: CircleXIcon,
+    ["active"]: ClockFadingIcon,
+    ["completed"]: CircleCheckIcon,
     ["processing"]: LoaderIcon,
     ["cancelled"]: CircleXIcon,
 }
@@ -84,7 +76,7 @@ export const columns: ColumnDef<MeetingsGetMany[number]>[] = [
                     className={cn("capitalize [&>svg]:size-4 flex items-center gap-x-2 text-blue-700/70 bg-blue-300/70 border-blue-700/30")}
                 >
                 <ClockFadingIcon className="text-blue-700"/>   
-                {duration ? formatDuration(duration) : "No duration"}
+                {row.original.duration ? formatDuration(row.original.duration) : "No duration"}
                 </Badge>
             );
         },

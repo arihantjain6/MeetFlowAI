@@ -17,6 +17,7 @@ import { meetingsInsertSchema, meetingsUpdateSchema } from "../schema";
 import { MeetingStatus } from "../types";
 import { generateAvatarUri } from "@/lib/avatar";
 import { streamVideo } from "@/lib/stream-video";
+import { GoogleGenAI } from "@google/genai";
 
 export const meetingsRouter = createTRPCRouter({
 
@@ -44,6 +45,78 @@ export const meetingsRouter = createTRPCRouter({
 
     return token;
   }),
+
+  generateAgentToken: protectedProcedure
+    .input(z.object({ agentId: z.string(), meetingId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const [result] = await db
+        .select({
+          agent: agents,
+        })
+        .from(meetings)
+        .innerJoin(agents, eq(meetings.agentId, agents.id))
+        .where(
+          and(
+            eq(meetings.id, input.meetingId),
+            eq(meetings.userId, ctx.auth.user.id),
+            eq(agents.id, input.agentId)
+          )
+        );
+
+      if (!result) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Agent not found",
+        });
+      }
+
+      const existingAgent = result.agent;
+
+      await streamVideo.upsertUsers([
+        {
+          id: existingAgent.id,
+          name: existingAgent.name,
+          role: "user",
+          image: generateAvatarUri({ seed: existingAgent.name, variant: "botttsNeutral" }),
+        },
+      ]);
+
+      const expirationTime = Math.floor(Date.now() / 1000) + 3600;
+      const issueAt = Math.floor(Date.now() / 1000) - 60;
+
+      const token = streamVideo.generateUserToken({
+        user_id: existingAgent.id,
+        exp: expirationTime,
+        validity_in_seconds: issueAt,
+      });
+
+      return token;
+    }),
+
+  generateEphemeralToken: protectedProcedure
+    .mutation(async () => {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const expireTime = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 mins
+      const newSessionExpireTime = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min
+
+      const token = await ai.authTokens.create({
+        config: {
+          uses: 1,
+          expireTime: expireTime,
+          newSessionExpireTime: newSessionExpireTime,
+          httpOptions: { apiVersion: "v1alpha" },
+        },
+      });
+
+      console.log("[Gemini Token Debug] Generated token response:", JSON.stringify(token));
+      if (!token.name) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to generate ephemeral token",
+        });
+      }
+      return token.name;
+    }),
 
   remove: protectedProcedure
       .input(z.object({ id: z.string() }))
@@ -81,6 +154,32 @@ export const meetingsRouter = createTRPCRouter({
         }
         return updateMeeting;
       }),
+
+  cancel: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const { id } = input;
+      const [updatedMeeting] = await db
+        .update(meetings)
+        .set({ status: MeetingStatus.Cancelled })
+        .where(
+          and(
+            eq(meetings.id, id),
+            eq(meetings.userId, ctx.auth.user.id),
+            eq(meetings.status, MeetingStatus.Upcoming)
+          )
+        )
+        .returning();
+
+      if (!updatedMeeting) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Meeting not found or cannot be cancelled (must be upcoming)",
+        });
+      }
+
+      return updatedMeeting;
+    }),
 
   create: protectedProcedure
       .input(meetingsInsertSchema)
