@@ -86,8 +86,8 @@ export async function POST(req: NextRequest) {
     streamVideo.video.call("default", meetingId);
   }
 
-  if (eventType === "call.ended" || eventType === "call.session_ended") {
-    const event = payload as CallEndedEvent | CallSessionEndedEvent;
+  if (eventType === "call.session_ended") {
+    const event = payload as CallSessionEndedEvent;
     const meetingId = event.call.custom?.meetingId as string | undefined;
 
     if (!meetingId) {

@@ -9,5 +9,4 @@ export const meetingsInsertSchema = z.object({
 
 export const meetingsUpdateSchema = meetingsInsertSchema.partial().extend({
     id: z.string().min(1, { message: "Id is required" }),
-    status: z.nativeEnum(MeetingStatus).optional(),
 });

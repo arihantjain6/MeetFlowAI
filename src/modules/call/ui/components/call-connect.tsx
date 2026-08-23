@@ -73,8 +73,8 @@ export const CallConnect = ({
     const { mutateAsync: generateAgentToken } = useMutation(
         trpc.meetings.generateAgentToken.mutationOptions(),
     );
-    const { data: geminiApiKey } = useSuspenseQuery(
-        trpc.meetings.getGeminiApiKey.queryOptions(),
+    const { mutateAsync: generateEphemeralToken } = useMutation(
+        trpc.meetings.generateEphemeralToken.mutationOptions(),
     );
 
     const [client, setClient] = useState<StreamVideoClient>();
@@ -119,7 +119,7 @@ export const CallConnect = ({
 
 
     useEffect(() => {
-        if (!client || !call || !geminiApiKey) return;
+        if (!client || !call) return;
 
         let activeAgentClient: StreamVideoClient | undefined;
         let activeAgentCall: Call | undefined;
@@ -128,12 +128,52 @@ export const CallConnect = ({
         let audioCtx: AudioContext | undefined;
         let processor: ScriptProcessorNode | undefined;
         let playCtx: AudioContext | undefined;
+        let isStarting = false;
+        let isCancelled = false;
+
+        const cleanupSession = () => {
+            if (ws) {
+                try { ws.close(); } catch {}
+            }
+            if (micStream) {
+                try { micStream.getTracks().forEach(t => t.stop()); } catch {}
+            }
+            if (processor) {
+                try { processor.disconnect(); } catch {}
+            }
+            if (audioCtx) {
+                try { audioCtx.close(); } catch {}
+            }
+            if (playCtx) {
+                try { playCtx.close(); } catch {}
+            }
+            if (activeAgentCall) {
+                try { activeAgentCall.leave(); } catch {}
+            }
+            if (activeAgentClient) {
+                try { activeAgentClient.disconnectUser(); } catch {}
+            }
+        };
 
         const startGeminiLive = async () => {
+            isStarting = true;
+            console.log("[Gemini Live Debug] startGeminiLive started.");
             try {
+                const tokenResponse = await generateEphemeralToken();
+                console.log("[Gemini Live Debug] Ephemeral token retrieved:", tokenResponse);
+                if (isCancelled) {
+                    cleanupSession();
+                    return;
+                }
+
                 // 1. Establish Gemini Live WebSocket connection (v1alpha)
-                const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${geminiApiKey}`;
+                const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=${encodeURIComponent(tokenResponse)}`;
+                console.log("[Gemini Live Debug] Connecting to WebSocket URL:", url);
                 ws = new WebSocket(url);
+                if (isCancelled) {
+                    cleanupSession();
+                    return;
+                }
 
                 ws.onopen = () => {
                     console.log("Gemini WebSocket opened, sending setup message...");
@@ -171,6 +211,10 @@ export const CallConnect = ({
                 playCtx = new (window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)({ sampleRate: 24000 });
                 if (playCtx.state === 'suspended') {
                     await playCtx.resume();
+                    if (isCancelled) {
+                        cleanupSession();
+                        return;
+                    }
                 }
                 const dest = playCtx.createMediaStreamDestination();
 
@@ -232,8 +276,13 @@ export const CallConnect = ({
                 };
 
                 // 3. Connect Stream Agent Participant and publish custom destination stream
-                const token = await generateAgentToken({ agentId });
-                const _agentClient = new StreamVideoClient({
+                const token = await generateAgentToken({ agentId, meetingId });
+                if (isCancelled) {
+                    cleanupSession();
+                    return;
+                }
+
+                activeAgentClient = new StreamVideoClient({
                     apiKey: process.env.NEXT_PUBLIC_STREAM_VIDEO_API_KEY!,
                     user: {
                         id: agentId,
@@ -243,27 +292,45 @@ export const CallConnect = ({
                     tokenProvider: () => Promise.resolve(token),
                 });
 
-                const _agentCall = _agentClient.call('default', meetingId);
-                await _agentCall.camera.disable();
+                activeAgentCall = activeAgentClient.call('default', meetingId);
+                await activeAgentCall.camera.disable();
+                if (isCancelled) {
+                    cleanupSession();
+                    return;
+                }
 
-                await _agentCall.join();
+                await activeAgentCall.join();
+                if (isCancelled) {
+                    cleanupSession();
+                    return;
+                }
 
                 // Publish Gemini's output stream as the agent's audio!
                 try {
-                    await _agentCall.publishAudioStream(dest.stream);
+                    await activeAgentCall.publishAudioStream(dest.stream);
                     console.log("Agent published custom audio stream successfully!");
                 } catch (pubErr) {
                     console.error("Agent failed to publish custom audio stream:", pubErr);
                 }
-
-                activeAgentClient = _agentClient;
-                activeAgentCall = _agentCall;
+                if (isCancelled) {
+                    cleanupSession();
+                    return;
+                }
 
                 // 4. Capture User's Microphone and send base64 PCM over WebSocket
                 micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                if (isCancelled) {
+                    cleanupSession();
+                    return;
+                }
+
                 audioCtx = new (window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
                 if (audioCtx.state === 'suspended') {
                     await audioCtx.resume();
+                    if (isCancelled) {
+                        cleanupSession();
+                        return;
+                    }
                 }
                 const sourceNode = audioCtx.createMediaStreamSource(micStream);
                 
@@ -314,36 +381,18 @@ export const CallConnect = ({
         };
 
         const unsubscribe = call.state.callingState$.subscribe((state) => {
-            if (state === CallingState.JOINED && !activeAgentCall) {
+            if (state === CallingState.JOINED && !activeAgentCall && !isStarting) {
                 startGeminiLive();
             }
         });
 
         return () => {
+            isCancelled = true;
+            isStarting = false;
             unsubscribe.unsubscribe();
-            if (ws) {
-                ws.close();
-            }
-            if (micStream) {
-                micStream.getTracks().forEach(t => t.stop());
-            }
-            if (processor) {
-                processor.disconnect();
-            }
-            if (audioCtx) {
-                audioCtx.close();
-            }
-            if (playCtx) {
-                playCtx.close();
-            }
-            if (activeAgentCall) {
-                try { activeAgentCall.leave(); } catch { /* already left */ }
-            }
-            if (activeAgentClient) {
-                try { activeAgentClient.disconnectUser(); } catch { /* already disconnected */ }
-            }
+            cleanupSession();
         };
-    }, [client, call, meetingId, agentId, agentName, agentInstructions, geminiApiKey, generateAgentToken]);
+    }, [client, call, meetingId, agentId, agentName, agentInstructions, generateAgentToken, generateEphemeralToken]);
 
     if (!call || !client) {
         return (

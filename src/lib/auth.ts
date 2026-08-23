@@ -5,13 +5,12 @@ import * as schema from "@/db/schema";
 
 export const auth = betterAuth({
     trustedOrigins: [
-        "http://localhost:3000",
-        "http://localhost:3001",
+        ...(process.env.NODE_ENV !== "production" ? [
+            "http://localhost:3000",
+            "http://localhost:3001"
+        ] : []),
         "https://senorita-iron-tarmac.ngrok-free.dev",
-        "https://*.ngrok-free.dev",
         "https://senorita-iron-tarmac.ngrok-free.app",
-        "https://*.ngrok-free.app",
-        "https://*.ngrok.io",
     ],
     socialProviders: {
         github: {
