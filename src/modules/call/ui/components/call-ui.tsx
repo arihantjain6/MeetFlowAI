@@ -14,7 +14,11 @@ export const CallUI = ({ meetingName }: Props) => {
 
     const handleJoin = async() => {
         if(!call) return;
-        await call.join();
+        try {
+            await call.join();
+        } catch (err) {
+            console.warn("Failed or already joined call:", err);
+        }
         setShow("call");
     };
 

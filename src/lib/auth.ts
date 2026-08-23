@@ -4,6 +4,15 @@ import { db } from "@/db"; // your drizzle instance
 import * as schema from "@/db/schema";
 
 export const auth = betterAuth({
+    trustedOrigins: [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://senorita-iron-tarmac.ngrok-free.dev",
+        "https://*.ngrok-free.dev",
+        "https://senorita-iron-tarmac.ngrok-free.app",
+        "https://*.ngrok-free.app",
+        "https://*.ngrok.io",
+    ],
     socialProviders: {
         github: {
             clientId: process.env.GITHUB_CLIENT_ID as string,

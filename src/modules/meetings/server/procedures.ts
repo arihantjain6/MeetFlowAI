@@ -45,6 +45,47 @@ export const meetingsRouter = createTRPCRouter({
     return token;
   }),
 
+  generateAgentToken: protectedProcedure
+    .input(z.object({ agentId: z.string() }))
+    .mutation(async ({ input }) => {
+      const [existingAgent] = await db
+        .select()
+        .from(agents)
+        .where(eq(agents.id, input.agentId));
+
+      if (!existingAgent) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Agent not found",
+        });
+      }
+
+      await streamVideo.upsertUsers([
+        {
+          id: existingAgent.id,
+          name: existingAgent.name,
+          role: "user",
+          image: generateAvatarUri({ seed: existingAgent.name, variant: "botttsNeutral" }),
+        },
+      ]);
+
+      const expirationTime = Math.floor(Date.now() / 1000) + 3600;
+      const issueAt = Math.floor(Date.now() / 1000) - 60;
+
+      const token = streamVideo.generateUserToken({
+        user_id: existingAgent.id,
+        exp: expirationTime,
+        validity_in_seconds: issueAt,
+      });
+
+      return token;
+    }),
+
+  getGeminiApiKey: protectedProcedure
+    .query(async () => {
+      return process.env.GEMINI_API_KEY;
+    }),
+
   remove: protectedProcedure
       .input(z.object({ id: z.string() }))
       .mutation(async ({ ctx, input }) => {

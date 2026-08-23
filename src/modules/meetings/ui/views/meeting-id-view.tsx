@@ -13,6 +13,9 @@ import { UpcomingState } from "../components/upcoming-state";
 import { ActiveState } from "../components/active-state ";
 import { CancelledState } from "../components/cancelled-state";
 import { ProcessingState } from "../components/processing-state";
+import { CompleteState } from "../components/complete-state";
+import { MeetingStatus } from "../../types";
+import { toast } from "sonner";
 
 interface Props {
     meetingId: string
@@ -45,6 +48,19 @@ export const MeetingIdView = ({ meetingId }: Props) => {
         await removeMeeting.mutateAsync({ id: meetingId })
     }
 
+    const updateMeeting = useMutation(
+        trpc.meetings.update.mutationOptions({
+            onSuccess: () => {
+                toast.success("Meeting status updated successfully");
+                queryClient.invalidateQueries(trpc.meetings.getOne.queryOptions({ id: meetingId }));
+                queryClient.invalidateQueries(trpc.meetings.getMany.queryOptions({}));
+            },
+            onError: (error) => {
+                toast.error(error.message);
+            }
+        })
+    )
+
     const isActive = data.status === "active";
     const isUpcoming = data.status === "upcoming";
     const isProcessing = data.status === "processing";
@@ -67,9 +83,17 @@ export const MeetingIdView = ({ meetingId }: Props) => {
                 onRemove={handleRemoveMeeting}
                 />
             {isCancelled && <CancelledState />}
-            {isCompleted && <div>Completed</div>}
+            {isCompleted && <CompleteState data={data} />}
             {isProcessing && <ProcessingState />}
-            {isUpcoming && (<UpcomingState meetingId={meetingId} onCancelMeeting={() => {}} isCancelling={false}/>)}
+            {isUpcoming && (
+                <UpcomingState 
+                    meetingId={meetingId} 
+                    onCancelMeeting={() => {
+                        updateMeeting.mutate({ id: meetingId, status: MeetingStatus.Cancelled })
+                    }} 
+                    isCancelling={updateMeeting.isPending}
+                />
+            )}
             {isActive && (<ActiveState meetingId={meetingId}/>)}  
             </div>
         </>

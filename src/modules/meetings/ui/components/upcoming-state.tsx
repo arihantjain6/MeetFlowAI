@@ -17,14 +17,14 @@ export const UpcomingState = ({meetingId, onCancelMeeting, isCancelling}:Props) 
                 title="Not started yet"
                 description="Looks like you're all clear! Schedule a new meeting to get started."
             />
-            <div>
-                <Button variant="secondary" className = "w-full lg:w-auto" onClick={onCancelMeeting } disabled={isCancelling}>
-                    <BanIcon />
-                    Cancel meeting 
+            <div className="flex flex-col sm:flex-row gap-3 w-full justify-center items-center">
+                <Button variant="secondary" className="w-full sm:w-auto" onClick={onCancelMeeting} disabled={isCancelling}>
+                    <BanIcon className="size-4 mr-2" />
+                    Cancel Meeting 
                 </Button> 
-                <Button disabled={isCancelling} asChild className="w-full lg:w-auto">
+                <Button disabled={isCancelling} asChild className="w-full sm:w-auto">
                     <Link href={`/call/${meetingId}`}>
-                        <VideoIcon />
+                        <VideoIcon className="size-4 mr-2" />
                         Start Meeting
                     </Link>
                 </Button>
