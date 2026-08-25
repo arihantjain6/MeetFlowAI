@@ -8,6 +8,7 @@ import {
   CallRecordingReadyEvent,
   CallTranscriptionReadyEvent,
 } from "@stream-io/node-sdk";
+import { StreamChat } from "stream-chat";
 
 // 1. Function to handle call session ended (transition status to processing)
 export const handleCallSessionEnded = inngest.createFunction(
@@ -166,6 +167,144 @@ Please apply the "Core Instructions & Guidelines" to customize the tone, style, 
           status: "completed",
         })
         .where(eq(meetings.id, meetingId));
+    });
+  }
+);
+
+// 4. Function to handle new chat messages (AI responder)
+export const handleMessageNew = inngest.createFunction(
+  { id: "message-new", triggers: [{ event: "message.new" }] },
+  async ({ event, step }) => {
+    const payload = event.data as any;
+    const meetingId = payload.channel_id || payload.cid?.split(":")[1];
+    const messageText = payload.message?.text;
+    const senderId = payload.message?.user?.id;
+
+    if (!meetingId || !messageText) {
+      return;
+    }
+
+    // Fetch meeting and agent details
+    const { meeting, agent } = await step.run("fetch-meeting-and-agent", async () => {
+      const [m] = await db
+        .select()
+        .from(meetings)
+        .where(eq(meetings.id, meetingId));
+
+      if (!m) {
+        throw new Error(`Meeting not found: ${meetingId}`);
+      }
+
+      const [a] = await db
+        .select()
+        .from(agents)
+        .where(eq(agents.id, m.agentId));
+
+      if (!a) {
+        throw new Error(`Agent not found for meeting: ${meetingId}`);
+      }
+
+      return { meeting: m, agent: a };
+    });
+
+    // Prevent infinite loop (do not reply to messages sent by the agent itself)
+    if (senderId === agent.id) {
+      return;
+    }
+
+    // Fetch and parse the JSONLines transcript file if it exists
+    const transcript = await step.run("fetch-and-parse-transcript", async () => {
+      if (!meeting.transcriptUrl) {
+        return "";
+      }
+
+      try {
+        const res = await fetch(meeting.transcriptUrl);
+        if (!res.ok) return "";
+
+        const jsonLinesText = await res.text();
+        const lines = jsonLinesText.split("\n").filter(Boolean);
+
+        let parsed = "";
+        for (const line of lines) {
+          try {
+            const obj = JSON.parse(line);
+            if (obj.text) {
+              parsed += `${obj.user_name || "Speaker"}: ${obj.text}\n`;
+            }
+          } catch {
+            // Skip malformed lines
+          }
+        }
+        return parsed;
+      } catch (err) {
+        return "";
+      }
+    });
+
+    // Call Gemini using the official @google/genai SDK to generate a response
+    const replyText = await step.run("generate-ai-reply", async () => {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      
+      let prompt = `You are "${agent.name}", a friendly and knowledgeable meeting assistant. You're chatting casually with someone about their meeting "${meeting.name}".
+
+IMPORTANT RULES FOR YOUR RESPONSES:
+- Write like a real person texting — natural, warm, and conversational
+- Keep responses short and to the point (2-4 sentences max unless they ask for detail)
+- Don't use markdown headers, bullet points, or numbered lists unless specifically asked
+- Don't start with "Based on the meeting..." or "According to the transcript..." — just answer naturally
+- Use casual language, contractions, and a friendly tone
+- If you don't know something, just say so honestly like a person would
+- Match the energy of the user's message — if they're brief, be brief back
+
+Here's the meeting summary for context:
+"""
+${meeting.summary}
+"""
+`;
+
+      if (transcript) {
+        prompt += `\nHere's the full transcript if you need specific details:\n"""\n${transcript}\n"""\n`;
+      }
+
+      if (agent.instructions) {
+        prompt += `\nAdditional personality/style notes: ${agent.instructions}\n`;
+      }
+
+      prompt += `\nUser says: "${messageText}"`;
+
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.6-flash",
+        contents: prompt,
+      });
+
+      return response.text || "Sorry, I was unable to generate a response.";
+    });
+
+    // Send the reply back to Stream Chat
+    await step.run("send-chat-reply", async () => {
+      // Create a fresh client to avoid stale singleton issues
+      const chatClient = new StreamChat(
+        process.env.NEXT_PUBLIC_STREAM_CHAT_API_KEY!,
+        process.env.NEXT_PUBLIC_STREAM_CHAT_API_SECRET!,
+      );
+
+      try {
+        // Upsert the agent user to ensure they exist in Stream Chat
+        await chatClient.upsertUsers([{
+          id: agent.id,
+          name: agent.name,
+        }]);
+
+        const channel = chatClient.channel("messaging", meetingId);
+        await channel.sendMessage({
+          text: replyText,
+          user_id: agent.id,
+        });
+      } finally {
+        await chatClient.disconnectUser();
+      }
     });
   }
 );

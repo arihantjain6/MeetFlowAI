@@ -1,10 +1,11 @@
 import { serve } from "inngest/next";
-import { inngest } from "@/lib/inngest/client";
+import { inngest } from "@/inngest/client";
 import {
   handleCallSessionEnded,
   handleCallRecordingReady,
   handleCallTranscriptionReady,
-} from "@/lib/inngest/functions";
+  handleMessageNew,
+} from "@/inngest/functions";
 
 // Serve the Inngest endpoint to handle HTTP incoming requests from Inngest dev server / cloud
 export const { GET, POST, PUT } = serve({
@@ -13,5 +14,6 @@ export const { GET, POST, PUT } = serve({
     handleCallSessionEnded,
     handleCallRecordingReady,
     handleCallTranscriptionReady,
+    handleMessageNew,
   ],
 });

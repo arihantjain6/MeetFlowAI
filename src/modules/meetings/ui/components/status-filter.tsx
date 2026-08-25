@@ -1,5 +1,5 @@
 import { CircleCheckIcon, CircleXIcon, ClockArrowUpIcon, VideoIcon, LoaderIcon } from "lucide-react"
-import { CommandSelect} from "@/components/command-select"
+import { CommandSelect } from "@/components/command-select"
 import { MeetingStatus } from "../../types"
 import { useMeetingsFilters } from "../../hooks/use-meetings-filters"
 
@@ -57,15 +57,15 @@ const options = [
 ];
 
 export const StatusFilter = () => {
-    const [ filter, setFilter ] = useMeetingsFilters();
+    const [filter, setFilter] = useMeetingsFilters();
 
     return (
         <CommandSelect
-        placeholder="Status"
-        className="w-auto min-w-[100px] h-9" 
-        options={options}
-        onSelect={(value) => setFilter({ status: value as MeetingStatus })}
-        value={filter.status ?? ""}
-    />
+            placeholder="Status"
+            className="w-auto min-w-[100px] h-9"
+            options={options}
+            onSelect={(value) => setFilter({ status: value as MeetingStatus })}
+            value={filter.status ?? ""}
+        />
     )
 }
