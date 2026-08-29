@@ -41,12 +41,14 @@ function CommandDialog({
   children,
   className,
   showCloseButton = false,
+  shouldFilter = true,
   ...props
 }: React.ComponentProps<typeof Dialog> & {
   title?: string
   description?: string
   className?: string
   showCloseButton?: boolean
+  shouldFilter?: boolean
 }) {
   return (
     <Dialog {...props}>
@@ -61,7 +63,7 @@ function CommandDialog({
         )}
         showCloseButton={showCloseButton}
       >
-        <Command className="[&_[data-slot=command-input-wrapper]]:border-b [&_[data-slot=command-input-wrapper]]:border-border/10">
+        <Command shouldFilter={shouldFilter} className="[&_[data-slot=command-input-wrapper]]:border-b [&_[data-slot=command-input-wrapper]]:border-border/10">
           {children}
         </Command>
       </DialogContent>
@@ -76,12 +78,14 @@ function CommandResponsiveDialog({
   children,
   className,
   showCloseButton = false,
+  shouldFilter = true,
   ...props
 }: React.ComponentProps<typeof Dialog> & {
   title?: string
   description?: string
   className?: string
   showCloseButton?: boolean
+  shouldFilter?: boolean
 }) {
   const isMobile = useIsMobile();
   if (isMobile) {
@@ -92,7 +96,7 @@ function CommandResponsiveDialog({
             <DrawerTitle>{title}</DrawerTitle>
             <DrawerDescription>{description}</DrawerDescription>
           </DrawerHeader>
-          <Command className="[&_[data-slot=command-input-wrapper]]:border-b [&_[data-slot=command-input-wrapper]]:border-border/10">
+          <Command shouldFilter={shouldFilter} className="[&_[data-slot=command-input-wrapper]]:border-b [&_[data-slot=command-input-wrapper]]:border-border/10">
             {children}
           </Command>
         </DrawerContent>
@@ -112,7 +116,7 @@ function CommandResponsiveDialog({
         )}
         showCloseButton={showCloseButton}
       >
-        <Command className="[&_[data-slot=command-input-wrapper]]:border-b [&_[data-slot=command-input-wrapper]]:border-border/10">
+        <Command shouldFilter={shouldFilter} className="[&_[data-slot=command-input-wrapper]]:border-b [&_[data-slot=command-input-wrapper]]:border-border/10">
           {children}
         </Command>
       </DialogContent>
