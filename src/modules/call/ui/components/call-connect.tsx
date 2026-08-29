@@ -109,8 +109,8 @@ export const CallConnect = ({
 
         return () => {
             if(_call.state.callingState !== CallingState.LEFT) {
-                _call.leave();
-                _call.endCall();
+                _call.leave().catch(() => {});
+                _call.endCall().catch(() => {});
                 setCall(undefined)
             }
         };
@@ -148,7 +148,7 @@ export const CallConnect = ({
                 try { playCtx.close(); } catch {}
             }
             if (activeAgentCall) {
-                try { activeAgentCall.leave(); } catch {}
+                activeAgentCall.leave().catch(() => {});
             }
             if (activeAgentClient) {
                 try { activeAgentClient.disconnectUser(); } catch {}

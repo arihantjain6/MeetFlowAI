@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { agents, meetings } from "@/db/schema";
 import { GoogleGenAI } from "@google/genai";
 import {
-  CallEndedEvent,
+  CallSessionEndedEvent,
   CallRecordingReadyEvent,
   CallTranscriptionReadyEvent,
 } from "@stream-io/node-sdk";
@@ -14,8 +14,11 @@ import { StreamChat } from "stream-chat";
 export const handleCallSessionEnded = inngest.createFunction(
   { id: "call-session-ended", triggers: [{ event: "call.session_ended" }] },
   async ({ event, step }) => {
-    const payload = event.data as CallEndedEvent;
-    const meetingId = payload.call.custom?.meetingId as string | undefined;
+    const payload = event.data as CallSessionEndedEvent;
+    const meetingId =
+      (payload.call?.custom?.meetingId as string | undefined) ||
+      payload.call?.id ||
+      (payload as Record<string, any>).call_cid?.split(":")[1];
 
     if (!meetingId) {
       throw new Error("No meetingId found in webhook payload");
