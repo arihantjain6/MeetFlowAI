@@ -14,34 +14,34 @@ import { CallUI } from './call-ui';
 import { generateAvatarUri } from '@/lib/avatar';
 
 function downsampleBuffer(buffer: Float32Array, inputSampleRate: number, outputSampleRate: number) {
-  if (inputSampleRate === outputSampleRate) {
-    return buffer;
-  }
-  const sampleRateRatio = inputSampleRate / outputSampleRate;
-  const newLength = Math.round(buffer.length / sampleRateRatio);
-  const result = new Float32Array(newLength);
-  let offsetResult = 0;
-  let offsetBuffer = 0;
-  while (offsetResult < result.length) {
-    const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRateRatio);
-    let accum = 0;
-    let count = 0;
-    for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
-      accum += buffer[i];
-      count++;
+    if (inputSampleRate === outputSampleRate) {
+        return buffer;
     }
-    result[offsetResult] = accum / count;
-    offsetResult++;
-    offsetBuffer = nextOffsetBuffer;
-  }
-  return result;
+    const sampleRateRatio = inputSampleRate / outputSampleRate;
+    const newLength = Math.round(buffer.length / sampleRateRatio);
+    const result = new Float32Array(newLength);
+    let offsetResult = 0;
+    let offsetBuffer = 0;
+    while (offsetResult < result.length) {
+        const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRateRatio);
+        let accum = 0;
+        let count = 0;
+        for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
+            accum += buffer[i];
+            count++;
+        }
+        result[offsetResult] = accum / count;
+        offsetResult++;
+        offsetBuffer = nextOffsetBuffer;
+    }
+    return result;
 }
 
 function floatTo16BitPCM(output: DataView, offset: number, input: Float32Array) {
-  for (let i = 0; i < input.length; i++, offset += 2) {
-    const s = Math.max(-1, Math.min(1, input[i]));
-    output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-  }
+    for (let i = 0; i < input.length; i++, offset += 2) {
+        const s = Math.max(-1, Math.min(1, input[i]));
+        output.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
 }
 
 interface Props {
@@ -78,26 +78,26 @@ export const CallConnect = ({
     );
 
     const [client, setClient] = useState<StreamVideoClient>();
-    useEffect( () => {
-      const _client = new StreamVideoClient({
-        apiKey: process.env.NEXT_PUBLIC_STREAM_VIDEO_API_KEY!,
-        user: {
-            id: userId,
-            name: userName,
-            image: userImage, 
-        },
-        tokenProvider: generateToken,
-      });
-      setClient(_client);
+    useEffect(() => {
+        const _client = new StreamVideoClient({
+            apiKey: process.env.NEXT_PUBLIC_STREAM_VIDEO_API_KEY!,
+            user: {
+                id: userId,
+                name: userName,
+                image: userImage,
+            },
+            tokenProvider: generateToken,
+        });
+        setClient(_client);
 
-      return () => {
-        _client.disconnectUser();
-        setClient(undefined);
-      };
+        return () => {
+            _client.disconnectUser();
+            setClient(undefined);
+        };
     }, [userId, userName, userImage, generateToken]);
 
     const [call, setCall] = useState<Call>();
-    
+
     useEffect(() => {
         if (!client) return;
 
@@ -108,9 +108,9 @@ export const CallConnect = ({
         setCall(_call);
 
         return () => {
-            if(_call.state.callingState !== CallingState.LEFT) {
-                _call.leave().catch(() => {});
-                _call.endCall().catch(() => {});
+            if (_call.state.callingState !== CallingState.LEFT) {
+                _call.leave().catch(() => { });
+                _call.endCall().catch(() => { });
                 setCall(undefined)
             }
         };
@@ -133,25 +133,25 @@ export const CallConnect = ({
 
         const cleanupSession = () => {
             if (ws) {
-                try { ws.close(); } catch {}
+                try { ws.close(); } catch { }
             }
             if (micStream) {
-                try { micStream.getTracks().forEach(t => t.stop()); } catch {}
+                try { micStream.getTracks().forEach(t => t.stop()); } catch { }
             }
             if (processor) {
-                try { processor.disconnect(); } catch {}
+                try { processor.disconnect(); } catch { }
             }
             if (audioCtx) {
-                try { audioCtx.close(); } catch {}
+                try { audioCtx.close(); } catch { }
             }
             if (playCtx) {
-                try { playCtx.close(); } catch {}
+                try { playCtx.close(); } catch { }
             }
             if (activeAgentCall) {
-                activeAgentCall.leave().catch(() => {});
+                activeAgentCall.leave().catch(() => { });
             }
             if (activeAgentClient) {
-                try { activeAgentClient.disconnectUser(); } catch {}
+                try { activeAgentClient.disconnectUser(); } catch { }
             }
         };
 
@@ -333,7 +333,7 @@ export const CallConnect = ({
                     }
                 }
                 const sourceNode = audioCtx.createMediaStreamSource(micStream);
-                
+
                 // Process in chunks of 2048 samples
                 processor = audioCtx.createScriptProcessor(2048, 1, 1);
                 const inputSampleRate = audioCtx.sampleRate;

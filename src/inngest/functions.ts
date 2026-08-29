@@ -302,7 +302,7 @@ ${meeting.summary}
     await step.run("send-chat-reply", async () => {
       // Create a fresh client to avoid stale singleton issues
       const chatClient = new StreamChat(
-        process.env.STREAM_CHAT_API_KEY!,
+        process.env.NEXT_PUBLIC_STREAM_CHAT_API_KEY!,
         process.env.STREAM_CHAT_API_SECRET!,
       );
 
