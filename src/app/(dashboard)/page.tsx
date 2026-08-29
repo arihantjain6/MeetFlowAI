@@ -1,18 +1,48 @@
-import { auth } from '@/lib/auth'
-import { headers } from 'next/headers'
-import { redirect } from 'next/navigation'
-import { HomeView } from '@/modules/home/ui/views/home-view'
+import { auth } from "@/lib/auth";
+import { HomeView } from "@/modules/home/ui/views/home-view";
+import { getQueryClient, trpc } from "@/trpc/server";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 const Page = async () => {
-  const session = await auth.api.getSession({
-    headers: await headers()
-  });
+    const session = await auth.api.getSession({
+        headers: await headers(),
+    });
 
-  if (!session) {
-    redirect("/sign-in")
-  }
+    if (!session) {
+        redirect("/sign-in");
+    }
 
-  return <HomeView />
-}
+    const queryClient = getQueryClient();
+
+    void queryClient.prefetchQuery(
+        trpc.meetings.getMany.queryOptions({
+            page: 1,
+            pageSize: 100,
+        })
+    );
+
+    void queryClient.prefetchQuery(
+        trpc.agents.getMany.queryOptions({
+            page: 1,
+            pageSize: 100,
+        })
+    );
+
+    void queryClient.prefetchQuery(
+        trpc.premium.getFreeUsage.queryOptions()
+    );
+
+    void queryClient.prefetchQuery(
+        trpc.premium.getCurrentSubscription.queryOptions()
+    );
+
+    return (
+        <HydrationBoundary state={dehydrate(queryClient)}>
+            <HomeView />
+        </HydrationBoundary>
+    );
+};
 
 export default Page;

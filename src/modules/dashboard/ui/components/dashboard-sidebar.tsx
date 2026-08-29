@@ -1,7 +1,7 @@
 "use client"
 
 import { Sidebar, SidebarContent, SidebarHeader, SidebarTrigger, SidebarMenuItem, SidebarMenuButton, SidebarGroupContent, SidebarGroup, SidebarFooter } from "@/components/ui/sidebar";
-import { BotIcon, StarIcon, VideoIcon } from "lucide-react";
+import { BotIcon, LayoutDashboardIcon, StarIcon, VideoIcon } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
@@ -12,6 +12,11 @@ import { DashboardTrial } from "./dashboard-trial";
 
 
 const firstSection = [
+    {
+        icon: LayoutDashboardIcon,
+        label: "Home",
+        href: "/"
+    },
     {
         icon: VideoIcon,
         label: "Meetings",
