@@ -31,7 +31,7 @@ export const ChatUI = ({ meetingId, meetingName, userId, userName, userImage }: 
     const tokenOrProvider = useCallback(() => generateChatToken(), [generateChatToken]);
 
     const client = useCreateChatClient({
-        apiKey: process.env.NEXT_PUBLIC_STREAM_CHAT_API_KEY!,
+        apiKey: process.env.STREAM_VIDEO_API_KEY!,
         tokenOrProvider,
         userData,
     });

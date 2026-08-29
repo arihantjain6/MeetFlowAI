@@ -33,7 +33,7 @@ export const handleCallSessionEnded = inngest.createFunction(
         })
         .where(eq(meetings.id, meetingId));
     });
-  }
+  },
 );
 
 // 2. Function to handle call recording ready (save recording URL)
@@ -56,12 +56,15 @@ export const handleCallRecordingReady = inngest.createFunction(
         })
         .where(eq(meetings.id, meetingId));
     });
-  }
+  },
 );
 
 // 3. Function to handle transcription ready (summarize transcript via Gemini)
 export const handleCallTranscriptionReady = inngest.createFunction(
-  { id: "call-transcription-ready", triggers: [{ event: "call.transcription_ready" }] },
+  {
+    id: "call-transcription-ready",
+    triggers: [{ event: "call.transcription_ready" }],
+  },
   async ({ event, step }) => {
     const payload = event.data as CallTranscriptionReadyEvent;
     const meetingId = payload.call_cid.split(":")[1];
@@ -95,28 +98,33 @@ export const handleCallTranscriptionReady = inngest.createFunction(
     });
 
     // Fetch and parse the JSONLines transcript file
-    const transcript = await step.run("fetch-and-parse-transcript", async () => {
-      const res = await fetch(transcriptUrl);
-      if (!res.ok) {
-        throw new Error(`Failed to fetch transcription file from ${transcriptUrl}`);
-      }
-
-      const jsonLinesText = await res.text();
-      const lines = jsonLinesText.split("\n").filter(Boolean);
-
-      let parsed = "";
-      for (const line of lines) {
-        try {
-          const obj = JSON.parse(line);
-          if (obj.text) {
-            parsed += `${obj.user_id || "Speaker"}: ${obj.text}\n`;
-          }
-        } catch {
-          // Skip malformed lines
+    const transcript = await step.run(
+      "fetch-and-parse-transcript",
+      async () => {
+        const res = await fetch(transcriptUrl);
+        if (!res.ok) {
+          throw new Error(
+            `Failed to fetch transcription file from ${transcriptUrl}`,
+          );
         }
-      }
-      return parsed;
-    });
+
+        const jsonLinesText = await res.text();
+        const lines = jsonLinesText.split("\n").filter(Boolean);
+
+        let parsed = "";
+        for (const line of lines) {
+          try {
+            const obj = JSON.parse(line);
+            if (obj.text) {
+              parsed += `${obj.user_id || "Speaker"}: ${obj.text}\n`;
+            }
+          } catch {
+            // Skip malformed lines
+          }
+        }
+        return parsed;
+      },
+    );
 
     // Call Gemini using the official @google/genai SDK to generate summaries and key items
     const summary = await step.run("generate-summary", async () => {
@@ -171,7 +179,7 @@ Please apply the "Core Instructions & Guidelines" to customize the tone, style, 
         })
         .where(eq(meetings.id, meetingId));
     });
-  }
+  },
 );
 
 // 4. Function to handle new chat messages (AI responder)
@@ -188,27 +196,30 @@ export const handleMessageNew = inngest.createFunction(
     }
 
     // Fetch meeting and agent details
-    const { meeting, agent } = await step.run("fetch-meeting-and-agent", async () => {
-      const [m] = await db
-        .select()
-        .from(meetings)
-        .where(eq(meetings.id, meetingId));
+    const { meeting, agent } = await step.run(
+      "fetch-meeting-and-agent",
+      async () => {
+        const [m] = await db
+          .select()
+          .from(meetings)
+          .where(eq(meetings.id, meetingId));
 
-      if (!m) {
-        throw new Error(`Meeting not found: ${meetingId}`);
-      }
+        if (!m) {
+          throw new Error(`Meeting not found: ${meetingId}`);
+        }
 
-      const [a] = await db
-        .select()
-        .from(agents)
-        .where(eq(agents.id, m.agentId));
+        const [a] = await db
+          .select()
+          .from(agents)
+          .where(eq(agents.id, m.agentId));
 
-      if (!a) {
-        throw new Error(`Agent not found for meeting: ${meetingId}`);
-      }
+        if (!a) {
+          throw new Error(`Agent not found for meeting: ${meetingId}`);
+        }
 
-      return { meeting: m, agent: a };
-    });
+        return { meeting: m, agent: a };
+      },
+    );
 
     // Prevent infinite loop (do not reply to messages sent by the agent itself)
     if (senderId === agent.id) {
@@ -216,39 +227,42 @@ export const handleMessageNew = inngest.createFunction(
     }
 
     // Fetch and parse the JSONLines transcript file if it exists
-    const transcript = await step.run("fetch-and-parse-transcript", async () => {
-      if (!meeting.transcriptUrl) {
-        return "";
-      }
-
-      try {
-        const res = await fetch(meeting.transcriptUrl);
-        if (!res.ok) return "";
-
-        const jsonLinesText = await res.text();
-        const lines = jsonLinesText.split("\n").filter(Boolean);
-
-        let parsed = "";
-        for (const line of lines) {
-          try {
-            const obj = JSON.parse(line);
-            if (obj.text) {
-              parsed += `${obj.user_name || "Speaker"}: ${obj.text}\n`;
-            }
-          } catch {
-            // Skip malformed lines
-          }
+    const transcript = await step.run(
+      "fetch-and-parse-transcript",
+      async () => {
+        if (!meeting.transcriptUrl) {
+          return "";
         }
-        return parsed;
-      } catch (err) {
-        return "";
-      }
-    });
+
+        try {
+          const res = await fetch(meeting.transcriptUrl);
+          if (!res.ok) return "";
+
+          const jsonLinesText = await res.text();
+          const lines = jsonLinesText.split("\n").filter(Boolean);
+
+          let parsed = "";
+          for (const line of lines) {
+            try {
+              const obj = JSON.parse(line);
+              if (obj.text) {
+                parsed += `${obj.user_name || "Speaker"}: ${obj.text}\n`;
+              }
+            } catch {
+              // Skip malformed lines
+            }
+          }
+          return parsed;
+        } catch (err) {
+          return "";
+        }
+      },
+    );
 
     // Call Gemini using the official @google/genai SDK to generate a response
     const replyText = await step.run("generate-ai-reply", async () => {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      
+
       let prompt = `You are "${agent.name}", a friendly and knowledgeable meeting assistant. You're chatting casually with someone about their meeting "${meeting.name}".
 
 IMPORTANT RULES FOR YOUR RESPONSES:
@@ -276,7 +290,6 @@ ${meeting.summary}
 
       prompt += `\nUser says: "${messageText}"`;
 
-
       const response = await ai.models.generateContent({
         model: "gemini-3.6-flash",
         contents: prompt,
@@ -289,16 +302,18 @@ ${meeting.summary}
     await step.run("send-chat-reply", async () => {
       // Create a fresh client to avoid stale singleton issues
       const chatClient = new StreamChat(
-        process.env.NEXT_PUBLIC_STREAM_CHAT_API_KEY!,
-        process.env.NEXT_PUBLIC_STREAM_CHAT_API_SECRET!,
+        process.env.STREAM_CHAT_API_KEY!,
+        process.env.STREAM_CHAT_API_SECRET!,
       );
 
       try {
         // Upsert the agent user to ensure they exist in Stream Chat
-        await chatClient.upsertUsers([{
-          id: agent.id,
-          name: agent.name,
-        }]);
+        await chatClient.upsertUsers([
+          {
+            id: agent.id,
+            name: agent.name,
+          },
+        ]);
 
         const channel = chatClient.channel("messaging", meetingId);
         await channel.sendMessage({
@@ -309,5 +324,5 @@ ${meeting.summary}
         await chatClient.disconnectUser();
       }
     });
-  }
+  },
 );
